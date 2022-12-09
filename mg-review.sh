@@ -169,7 +169,11 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
     expected=$(grep -m1 'took too long.*expec' "$i" | cut -d' ' -f2- | jq -r '."expected-duration"' 2>/dev/null)
     if grep 'took too long.*expec' "$i" > /dev/null 2>&1;
     then
-      for x in $(grep 'took too long.*expec' "$i" | grep -v leader | tail -n 500 | cut -d' ' -f2- | jq -r '.took' 2>/dev/null); do
+
+      first=$(grep -m1 'took too long.*expec' "$i" 2>/dev/null | awk '{ print $1}')
+      last=$(grep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
+
+      for x in $(grep 'took too long.*expec' "$i" | grep -v leader | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null); do
         if [[ $x =~ [1-9]s ]];
         then
          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
@@ -187,7 +191,9 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
         count=$(( $count + 1 ))
         avg=$(echo "$avg + $compact_time" | bc )
       done
-      printf "Stats about last 500 etcd 'took long' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
+      printf "Stats about etcd 'took long' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
+      printf "\tFirst Occurance: ${first}\n"
+      printf "\tLast Occurance: ${last}\n"
       printf "\tMax: ${max}ms\n"
       printf "\tMin: ${min}ms\n"
       printf "\tAvg: $(echo "$avg/$count" | bc)ms\n"
@@ -466,6 +472,69 @@ done
 #Subtract one line for true count
 csr_total=$(( ${#csr_arr[@]} - 1 ))
 printf "Total Unsigned CSRs: ${csr_total}\n"
+
+}
+
+podnetcheck(){
+
+##Added for future support of podnetworkconnectivitychecks
+
+#Check to make sure the podnetworkconnectivitychecks.yaml file exits
+if [ ! -d  pod_network_connectivity_check/ ]; then
+  echo -e "PodNetworkConnectivityChecks not found.\n\n"
+  return 1
+fi
+
+#Get Count
+checks_count_len=$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r '.items | length')
+check_count=$(( $checks_count_len - 1 ))
+
+podnetcheck_arr=("NAME|DATE|ERROR")
+
+#Get indexes with failures.
+for i in {0..${check_count}}; do 
+    if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items["$i"].status.failures[0].success | contains(false)"; then 
+      podnetcheckerrors_arr+=("$i")
+    fi
+done
+
+#Get ouput from index with failures.
+for i in ${podnetcheckerrors_arr[@]}; do 
+    podnetcheck_arr+=("$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | select(.status.failures[0].success == false) | .metadata.name, .status.failures[0].time, .status.failures[0].message)] | join(\"|\")")")
+done
+
+if [ "${#podnetcheck_arr[1]}" != 0 ]; then
+  printf '%s\n' "${podnetcheck_arr[@]}" | column -t -s '|'
+  printf "\n"
+fi
+
+#Check for outages
+outage_count_len=$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r '.items | length')
+outage_count=$(( $outage_count_len - 1 ))
+
+podnetoutage_arr=("NAME|START|END|MESSAGE|ERROR")
+
+#Get indexes with failures.
+for i in {0..${outage_count}}; do 
+  if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items[$i].status.outages[].message | contains(\"Connectivity\")"; then
+    podnetoutageerrors_arr+=("$i")
+  fi
+done
+
+#Get ouput from index with failures.
+for i in ${podnetoutageerrors_arr[@]}; do 
+    podnetoutage_arr+=("$(yq -r . podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | .metadata.name, .status.outages[0].start, .status.outages[0].end, .status.outages[0].message, .status.outages[0].endLogs[-1].message)] | join(\"|\")")")
+done
+
+if [ "${#podnetoutage_arr[1]}" != 0 ]; then
+  printf '%s\n' "${podnetoutage_arr[@]}" | column -t -s '|'
+  printf "\n"
+fi
+
+unset podnetcheck_arr
+unset podnetcheckerrors_arr
+unset podnetoutage_arr
+unset podnetoutageerrors_arr
 
 }
 
