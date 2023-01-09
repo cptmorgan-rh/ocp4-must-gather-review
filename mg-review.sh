@@ -36,6 +36,9 @@ run() {
     --csr)
       csr
       ;;
+    --podnetcheck)
+      podnetcheck
+      ;;
     --help)
       show_help
       ;;
@@ -64,6 +67,7 @@ Options:
   --kubecontrol  Searches for known errors in kube-controller-manager-* pods
   --auth         Searches for known errors in oauth-openshift-* pods
   --csr          Searches for and Prints total Pending CSRs
+  --podnetcheck  Searches for and Prints PodNetworkConnectivityCheck errors
   --help         Shows this help message
 
 ENDHELP
@@ -143,7 +147,7 @@ fi
 etcd_output_arr=("NAMESPACE|POD|ERROR|COUNT")
 
 # etcd pod errors
-etcd_etcd_errors_arr=("slow fdatasync" "took too long" "local node might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "failed to send out heartbeat on time" "lost the tcp streaming" "sending buffer is full")
+etcd_etcd_errors_arr=("etcdserver: request timed out" "slow fdatasync" "took too long" "local node might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "failed to send out heartbeat on time" "lost the tcp streaming" "sending buffer is full")
 
 for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
   for val in "${etcd_etcd_errors_arr[@]}"; do
@@ -173,7 +177,7 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
       first=$(grep -m1 'took too long.*expec' "$i" 2>/dev/null | awk '{ print $1}')
       last=$(grep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
 
-      for x in $(grep 'took too long.*expec' "$i" | grep -v leader | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null); do
+      for x in $(grep 'took too long.*expec' "$i" | grep -v leader | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null | grep -Ev '[1-9]m[0-9].*s'); do
         if [[ $x =~ [1-9]s ]];
         then
          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
@@ -492,7 +496,7 @@ check_count=$(( $checks_count_len - 1 ))
 podnetcheck_arr=("NAME|DATE|ERROR")
 
 #Get indexes with failures.
-for i in {0..${check_count}}; do 
+for i in {0..${check_count}}; do
     if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items["$i"].status.failures[0].success | contains(false)"; then 
       podnetcheckerrors_arr+=("$i")
     fi
@@ -508,14 +512,10 @@ if [ "${#podnetcheck_arr[1]}" != 0 ]; then
   printf "\n"
 fi
 
-#Check for outages
-outage_count_len=$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r '.items | length')
-outage_count=$(( $outage_count_len - 1 ))
-
 podnetoutage_arr=("NAME|START|END|MESSAGE|ERROR")
 
 #Get indexes with failures.
-for i in {0..${outage_count}}; do 
+for i in {0..${check_count}}; do
   if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items[$i].status.outages[].message | contains(\"Connectivity\")"; then
     podnetoutageerrors_arr+=("$i")
   fi
