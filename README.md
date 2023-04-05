@@ -69,14 +69,11 @@ USAGE
 ------------
 
 ```bash
-USAGE: mg-review.sh
-must-gather-review is a simple script which searches a must-gather for known
-issues and reports the namespace, pod, and the count for the errors found.
-
 Options:
+  --all          Performs all options
   --events       Displays all events in a given namespace
-  --etcd         Searches for known errors in the etcd pods
-  --kubeapi      Searches for known errors in the kube-apiserver-* pods
+  --etcd         Searches for known errors in the eoptions
+  --kubeapi      Searches for known errors in the kube-apiserveoptions
   --scheduler    Searches for known errors in the openshift-kube-scheduler-* pods
   --dns          Searches for known errors in dns-default-* pods
   --ingress      Searches for known errors in router-default-* pods
@@ -84,6 +81,7 @@ Options:
   --kubecontrol  Searches for known errors in kube-controller-manager-* pods
   --auth         Searches for known errors in oauth-openshift-* pods
   --csr          Searches for and Prints total Pending CSRs
+  --podnetcheck  Searches for and Prints PodNetworkConnectivityCheck errors
   --help         Shows this help message
 ```
 
@@ -126,17 +124,17 @@ Stats about last 500 etcd 'took long' messages: etcd-ocp4-85wpv-master-2
 	Avg: 572ms
 	Expected: 200ms
 
-Last 500 etcd DB Compaction times: etcd-ocp4-85wpv-master-0
+etcd DB Compaction times: etcd-ocp4-85wpv-master-0
 	Max: 453.066099ms
 	Min: 165.595496ms
 	Avg: 182ms
 
-Last 500 etcd DB Compaction times: etcd-ocp4-85wpv-master-1
+etcd DB Compaction times: etcd-ocp4-85wpv-master-1
 	Max: 548.300888ms
 	Min: 164.605164ms
 	Avg: 182ms
 
-Last 500 etcd DB Compaction times: etcd-ocp4-85wpv-master-2
+etcd DB Compaction times: etcd-ocp4-85wpv-master-2
 	Max: 453.216023ms
 	Min: 166.309408ms
 	Avg: 183ms
