@@ -57,9 +57,10 @@ must-gather-review is a simple script which searches a must-gather for known
 issues and reports the namespace, pod, and the count for the errors found.
 
 Options:
+  --all          Performs all options
   --events       Displays all events in a given namespace
-  --etcd         Searches for known errors in the etcd pods
-  --kubeapi      Searches for known errors in the kube-apiserver-* pods
+  --etcd         Searches for known errors in the eoptions
+  --kubeapi      Searches for known errors in the kube-apiserveoptions
   --scheduler    Searches for known errors in the openshift-kube-scheduler-* pods
   --dns          Searches for known errors in dns-default-* pods
   --ingress      Searches for known errors in router-default-* pods
@@ -147,7 +148,7 @@ fi
 etcd_output_arr=("NAMESPACE|POD|ERROR|COUNT")
 
 # etcd pod errors
-etcd_etcd_errors_arr=("etcdserver: request timed out" "slow fdatasync" "took too long" "local node might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "failed to send out heartbeat on time" "lost the tcp streaming" "sending buffer is full")
+etcd_etcd_errors_arr=("etcdserver: request timed out" "slow fdatasync" "took too long" "local node might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "failed to send out heartbeat on time" "lost the tcp streaming" "sending buffer is full" "health errors")
 
 for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
   for val in "${etcd_etcd_errors_arr[@]}"; do
@@ -211,9 +212,9 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
     min=9999
     avg=0
     count=0
-    if grep -m1 "finished scheduled compaction" "$i"  > /dev/null 2>&1;
+    if grep -m1 "finished scheduled compaction" "$i" | grep '"took"'  > /dev/null 2>&1;
     then
-      for x in $(grep "finished scheduled compaction" "$i" | tail -n 500 | cut -d' ' -f2- | sed 's/\\/\\\\/g' | jq -r '.took'); do
+      for x in $(grep "finished scheduled compaction" "$i" | cut -d' ' -f2- | sed 's/\\/\\\\/g' | jq -r '.took'); do
         if [[ $x =~ [1-9]s ]];
         then
           compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
@@ -231,7 +232,7 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
         count=$(( $count + 1 ))
         avg=$(echo "$avg + $compact_time" | bc )
       done
-      printf "Last 500 etcd DB Compaction times: $(echo "$i" | awk -F/ '{ print $4 }')\n"
+      printf "etcd DB Compaction times: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tMax: ${max}ms\n"
       printf "\tMin: ${min}ms\n"
       printf "\tAvg: $(echo "$avg/$count" | bc)ms\n"
