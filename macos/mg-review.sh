@@ -183,7 +183,7 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
     if ggrep 'took too long.*expec' "$i" > /dev/null 2>&1;
     then
       expected=$(ggrep -m1 'took too long.*expec' "$i" | ggrep -o "{.*}" | jq -r '."expected-duration"' 2>/dev/null)
-      first=$(gggrep -m1 'took too long.*.expec' "$i" 2>/dev/null | ggrep -o "{.*}" | jq -r '.ts')
+      first=$(ggrep -m1 'took too long.*.expec' "$i" 2>/dev/null | ggrep -o "{.*}" | jq -r '.ts')
       last=$(ggrep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | ggrep -o "{.*}" | jq -r '.ts')
 
       for x in $(ggrep 'took too long.*expec' "$i" | ggrep -Ev 'leader|waiting for ReadIndex response took too long' | ggrep -o "{.*}" | jq -r '.took' 2>/dev/null | ggrep -Ev 'T|Z' 2>/dev/null | ggrep -Ev '[1-9]m[0-9].*s'); do
