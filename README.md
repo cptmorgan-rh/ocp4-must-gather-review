@@ -9,7 +9,12 @@ The purpose of this script is to quickly search logs for known issues in an Open
 PREREQUISITES
 ------------
 
+LINUX:
 This script requires [yq](https://github.com/kislyuk/yq) and jq. yq can be obtained from the github page or installed by running `pip3 install yq` and the jq package is avaiable in all common Linux Distributions.
+
+MACOS:
+The macos script requires [yq](https://github.com/kislyuk/yq), [gnu grep](https://formulae.brew.sh/formula/grep), [bc from brew](https://formulae.brew.sh/formula/bc#default), and [jq from brew](https://formulae.brew.sh/formula/jq#default).
+macos includes bc, but during testings I found that calculations of `etcd` times were up to 50% faster using bc from brew.
 
 CONTRIBUTING
 ------------
