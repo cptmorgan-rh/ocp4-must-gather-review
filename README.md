@@ -66,9 +66,13 @@ unset <function/namespace_name>_output_arr
 }
 ```
 
-INSTALLATION
-------------
-* Copy mg-review.sh to a location inside of your $PATH
+## INSTALLATION
+
+### Linux
+* Copy [mg-review.sh](./mg-review.sh) to a location inside of your $PATH
+
+### MacOS
+* Copy [macos/mg-review.sh](./macos/mg-review.sh) to a location inside of your $PATH
 
 USAGE
 ------------
