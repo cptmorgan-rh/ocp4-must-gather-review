@@ -92,7 +92,7 @@ if [ ! $(command -v ggrep) ]; then
   exit 1
 fi
 
-if [ ! -f /opt/homebrew/opt/bc/bin/bc ]; then
+if [ ! $(command -v bc) ]; then
   echo "brew bc not found. Please install bc by running brew install bc"
   exit 1
 fi
@@ -189,27 +189,27 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
       for x in $(ggrep 'took too long.*expec' "$i" | ggrep -Ev 'leader|waiting for ReadIndex response took too long' | ggrep -o "{.*}" | jq -r '.took' 2>/dev/null | ggrep -Ev 'T|Z' 2>/dev/null | ggrep -Ev '[1-9]m[0-9].*s'); do
         if [[ $x =~ [1-9]s ]];
         then
-         compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /opt/homebrew/opt/bc/bin/bc)
+         compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /usr/bin/bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
-        if [[ $(echo "$compact_time > $max" | /opt/homebrew/opt/bc/bin/bc -l 2>/dev/null) -eq 1 ]];
+        if [[ $(echo "$compact_time > $max" | /usr/bin/bc -l 2>/dev/null) -eq 1 ]];
         then
           max=$(echo $compact_time | sed -e 's/[0]*$//g')
         fi
-        if [[ $(echo "$compact_time > $min" | /opt/homebrew/opt/bc/bin/bc -l 2>/dev/null) -eq 0 ]];
+        if [[ $(echo "$compact_time > $min" | /usr/bin/bc -l 2>/dev/null) -eq 0 ]];
         then
           min=$(echo $compact_time | sed -e 's/[0]*$//g')
         fi
         count=$(( $count + 1 ))
-        avg=$(echo "$avg + $compact_time" | /opt/homebrew/opt/bc/bin/bc )
+        avg=$(echo "$avg + $compact_time" | /usr/bin/bc )
       done
       printf "Stats about etcd 'took long' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tFirst Occurance: ${first}\n"
       printf "\tLast Occurance: ${last}\n"
       printf "\tMax: ${max}ms\n"
       printf "\tMin: ${min}ms\n"
-      printf "\tAvg: $(echo "$avg/$count" | /opt/homebrew/opt/bc/bin/bc)ms\n"
+      printf "\tAvg: $(echo "$avg/$count" | /usr/bin/bc)ms\n"
       printf "\tExpected: ${expected}\n"
       printf "\n"
     fi
@@ -225,25 +225,25 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
       for x in $(ggrep "finished scheduled compaction" "$i" | ggrep -o "{.*}" | sed 's/\\/\\\\/g' | jq -r '.took'); do
         if [[ $x =~ [1-9]s ]];
         then
-          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /usr/bin/bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
-        if [[ $(echo "$compact_time > $max" | /opt/homebrew/opt/bc/bin/bc -l) -eq 1 ]];
+        if [[ $(echo "$compact_time > $max" | /usr/bin/bc -l) -eq 1 ]];
         then
           max=$(echo $compact_time | sed -e 's/[0]*$//g')
         fi
-        if [[ $(echo "$compact_time > $min" | /opt/homebrew/opt/bc/bin/bc -l) -eq 0 ]];
+        if [[ $(echo "$compact_time > $min" | /usr/bin/bc -l) -eq 0 ]];
         then
           min=$(echo $compact_time | sed -e 's/[0]*$//g')
         fi
         count=$(( $count + 1 ))
-        avg=$(echo "$avg + $compact_time" | /opt/homebrew/opt/bc/bin/bc )
+        avg=$(echo "$avg + $compact_time" | /usr/bin/bc )
       done
       printf "etcd DB Compaction times: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tMax: ${max}ms\n"
       printf "\tMin: ${min}ms\n"
-      printf "\tAvg: $(echo "$avg/$count" | /opt/homebrew/opt/bc/bin/bc)ms\n"
+      printf "\tAvg: $(echo "$avg/$count" | /usr/bin/bc)ms\n"
       printf "\n"
     fi
 done
