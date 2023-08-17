@@ -175,7 +175,7 @@ fi
 
 unset etcd_output_arr
 
-for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
+for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*log; do
     max=0
     min=9999
     avg=0
@@ -215,7 +215,7 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
     fi
 done
 
-for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
+for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
     max=0
     min=9999
     avg=0
