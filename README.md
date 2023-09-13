@@ -14,7 +14,6 @@ This script requires [yq](https://github.com/kislyuk/yq) and jq. yq can be obtai
 
 MACOS:
 The macos script requires [yq](https://github.com/kislyuk/yq), [gnu grep](https://formulae.brew.sh/formula/grep), and [jq from brew](https://formulae.brew.sh/formula/jq#default).
-macos includes bc, but during testings I found that calculations of `etcd` times were up to 50% faster using bc from brew.
 
 CONTRIBUTING
 ------------
