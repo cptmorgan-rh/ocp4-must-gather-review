@@ -92,11 +92,6 @@ if [ ! $(command -v ggrep) ]; then
   exit 1
 fi
 
-if [ ! -f /opt/homebrew/opt/bc/bin/bc ]; then
-  echo "brew bc not found. Please install bc by running brew install bc"
-  exit 1
-fi
-
 }
 
 all(){
@@ -176,86 +171,102 @@ fi
 unset etcd_output_arr
 
 for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
-    max=0
-    min=9999
-    avg=0
-    count=0
-    expected=$(ggrep -m1 'took too long.*expec' "$i" | cut -d' ' -f2- | jq -r '."expected-duration"' 2>/dev/null)
+    expected=$(ggrep -m1 'took too long.*expec' "$i" | ggrep -o "\{.*\}" | jq -r '."expected-duration"' 2>/dev/null)
     if ggrep 'took too long.*expec' "$i" > /dev/null 2>&1;
     then
 
       first=$(ggrep -m1 'took too long.*expec' "$i" 2>/dev/null | awk '{ print $1}')
       last=$(ggrep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
 
-      for x in $(ggrep 'took too long.*expec' "$i" | ggrep -Ev 'leader|waiting for ReadIndex response took too long' | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | ggrep -Ev 'T|Z' 2>/dev/null); do
+      for x in $(ggrep 'took too long.*expec' "$i" | ggrep -Ev 'leader|waiting for ReadIndex response took too long' | ggrep -o "\{.*\}"  | jq -r '.took' 2>/dev/null | ggrep -Ev 'T|Z' 2>/dev/null); do
         if [[ $x =~ [1-9]m[0-9] ]];
         then
-          compact_min=$(echo "scale=2;$(echo $x | ggrep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
-          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | ggrep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
-          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | /opt/homebrew/opt/bc/bin/bc)
+          compact_min=$(echo "scale=2;$(echo $x | ggrep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | ggrep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
+          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
         elif [[ $x =~ [1-9]s ]];
         then
-          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
-        if [[ $(echo "$compact_time > $max" | /opt/homebrew/opt/bc/bin/bc -l 2>/dev/null) -eq 1 ]];
-        then
-          max=$(echo $compact_time | sed -e 's/[0]*$//g')
-        fi
-        if [[ $(echo "$compact_time > $min" | /opt/homebrew/opt/bc/bin/bc -l 2>/dev/null) -eq 0 ]];
-        then
-          min=$(echo $compact_time | sed -e 's/[0]*$//g')
-        fi
-        count=$(( $count + 1 ))
-        avg=$(echo "$avg + $compact_time" | /opt/homebrew/opt/bc/bin/bc )
+        median_arr+=(${compact_time})
       done
       printf "Stats about etcd 'took long' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tFirst Occurance: ${first}\n"
       printf "\tLast Occurance: ${last}\n"
-      printf "\tMax: ${max}ms\n"
-      printf "\tMin: ${min}ms\n"
-      printf "\tAvg: $(echo "$avg/$count" | /opt/homebrew/opt/bc/bin/bc)ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
       printf "\tExpected: ${expected}\n"
       printf "\n"
+
+      unset median_arr
     fi
 done
 
 for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
-    max=0
-    min=9999
-    avg=0
-    count=0
-    if ggrep -m1 "finished scheduled compaction" "$i" | ggrep '"took"'  > /dev/null 2>&1;
+    expected=$(ggrep -m1 'slow fdatasync' "$i" | ggrep -o "\{.*\}" | jq -r '."expected-duration"' 2>/dev/null)
+    if ggrep 'slow fdatasync' "$i" > /dev/null 2>&1;
     then
-      for x in $(ggrep "finished scheduled compaction" "$i" | cut -d' ' -f2- | sed 's/\\/\\\\/g' | jq -r '.took'); do
+
+      first=$(ggrep -m1 'slow fdatasync' "$i" 2>/dev/null | awk '{ print $1}')
+      last=$(ggrep 'slow fdatasync' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
+
+      for x in $(ggrep 'slow fdatasync' "$i" | ggrep -o "\{.*\}"  | jq -r '.took' 2>/dev/null); do
         if [[ $x =~ [1-9]m[0-9] ]];
         then
-          compact_min=$(echo "scale=2;$(echo $x | ggrep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
-          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | ggrep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
-          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | /opt/homebrew/opt/bc/bin/bc)
+          compact_min=$(echo "scale=2;$(echo $x | ggrep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | ggrep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
+          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
         elif [[ $x =~ [1-9]s ]];
         then
-          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
-        if [[ $(echo "$compact_time > $max" | /opt/homebrew/opt/bc/bin/bc -l) -eq 1 ]];
+        median_arr+=(${compact_time})
+      done
+      printf "Stats about etcd 'slow fdatasync' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
+      printf "\tFirst Occurance: ${first}\n"
+      printf "\tLast Occurance: ${last}\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
+      printf "\tExpected: ${expected}\n"
+      printf "\n"
+
+      unset median_arr
+    fi
+done
+
+for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
+    if ggrep -m1 "finished scheduled compaction" "$i" | ggrep '"took"'  > /dev/null 2>&1;
+    then
+      for x in $(ggrep "finished scheduled compaction" "$i" | ggrep -o "\{.*\}" | jq -r '.took'); do
+        if [[ $x =~ [1-9]m[0-9] ]];
         then
-          max=$(echo $compact_time | sed -e 's/[0]*$//g')
-        fi
-        if [[ $(echo "$compact_time > $min" | /opt/homebrew/opt/bc/bin/bc -l) -eq 0 ]];
+          compact_min=$(echo "scale=2;$(echo $x | ggrep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | ggrep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
+          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
+        elif [[ $x =~ [1-9]s ]];
         then
-          min=$(echo $compact_time | sed -e 's/[0]*$//g')
+          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
+        else
+          compact_time=$(echo $x | sed 's/ms//')
         fi
-        count=$(( $count + 1 ))
-        avg=$(echo "$avg + $compact_time" | /opt/homebrew/opt/bc/bin/bc )
+        median_arr+=(${compact_time})
       done
       printf "etcd DB Compaction times: $(echo "$i" | awk -F/ '{ print $4 }')\n"
-      printf "\tMax: ${max}ms\n"
-      printf "\tMin: ${min}ms\n"
-      printf "\tAvg: $(echo "$avg/$count" | /opt/homebrew/opt/bc/bin/bc)ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
       printf "\n"
+
+      unset median_ar
     fi
 done
 
