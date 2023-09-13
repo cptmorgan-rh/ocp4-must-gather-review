@@ -131,7 +131,6 @@ else
   exit
 fi
 
-
 unset events_arr
 
 }
@@ -148,7 +147,8 @@ fi
 etcd_output_arr=("NAMESPACE|POD|ERROR|COUNT")
 
 # etcd pod errors
-etcd_etcd_errors_arr=("waiting for ReadIndex response took too long" "etcdserver: request timed out" "slow fdatasync" "took too long" "local node might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "failed to send out heartbeat on time" "lost the tcp streaming" "sending buffer is full" "health errors")
+etcd_etcd_errors_arr=("waiting for ReadIndex response took too long, retrying" "etcdserver: request timed out" "slow fdatasync" "\"apply request took too long\"" "\"leader failed to send out heartbeat on time; took too long, leader is overloaded likely from slow disk\"" "local no
+de might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "lost the tcp streaming" "sending buffer is full" "health errors")
 
 for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
   for val in "${etcd_etcd_errors_arr[@]}"; do
@@ -170,16 +170,22 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
     min=9999
     avg=0
     count=0
+    expected=$(grep -m1 'took too long.*expec' "$i" | cut -d' ' -f2- | jq -r '."expected-duration"' 2>/dev/null)
     if grep 'took too long.*expec' "$i" > /dev/null 2>&1;
     then
-      expected=$(grep -m1 'took too long.*expec' "$i" | grep -o "\{.*\}" | jq -r '."expected-duration"' 2>/dev/null)
-      first=$(grep -m1 'took too long.*.expec' "$i" 2>/dev/null | grep -o "\{.*\}" | jq -r '.ts')
-      last=$(grep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | grep -o "\{.*\}" | jq -r '.ts')
 
-      for x in $(grep 'took too long.*expec' "$i" | grep -Ev 'leader|waiting for ReadIndex response took too long' | grep -o "\{.*\}" | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null | grep -Ev '[1-9]m[0-9].*s'); do
-        if [[ $x =~ [1-9]s ]];
+      first=$(grep -m1 'took too long.*expec' "$i" 2>/dev/null | awk '{ print $1}')
+      last=$(grep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
+
+      for x in $(grep 'took too long.*expec' "$i" | grep -Ev 'leader|waiting for ReadIndex response took too long' | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null); do
+        if [[ $x =~ [1-9]m[0-9] ]];
         then
-         compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
+          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
+          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
+        elif [[ $x =~ [1-9]s ]];
+        then
+          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
@@ -212,8 +218,13 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
     count=0
     if grep -m1 "finished scheduled compaction" "$i" | grep '"took"'  > /dev/null 2>&1;
     then
-      for x in $(grep "finished scheduled compaction" "$i" | grep -o "\{.*\}" | sed 's/\\/\\\\/g' | jq -r '.took'); do
-        if [[ $x =~ [1-9]s ]];
+      for x in $(grep "finished scheduled compaction" "$i" | cut -d' ' -f2- | sed 's/\\/\\\\/g' | jq -r '.took'); do
+        if [[ $x =~ [1-9]m[0-9] ]];
+        then
+          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
+          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
+        elif [[ $x =~ [1-9]s ]];
         then
           compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
         else
@@ -480,8 +491,6 @@ printf "Total Unsigned CSRs: ${csr_total}\n"
 
 podnetcheck(){
 
-##Added for future support of podnetworkconnectivitychecks
-
 #Check to make sure the podnetworkconnectivitychecks.yaml file exits
 if [ ! -d  pod_network_connectivity_check/ ]; then
   echo -e "PodNetworkConnectivityChecks not found.\n\n"
@@ -495,14 +504,14 @@ check_count=$(( $checks_count_len - 1 ))
 podnetcheck_arr=("NAME|DATE|ERROR")
 
 #Get indexes with failures.
-for i in {0..${check_count}}; do
-    if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items["$i"].status.failures[0].success | contains(false)"; then 
+for i in $(seq 0 ${check_count}); do
+    if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items["$i"].status.failures[0].success | contains(false)"; then
       podnetcheckerrors_arr+=("$i")
     fi
 done
 
 #Get ouput from index with failures.
-for i in ${podnetcheckerrors_arr[@]}; do 
+for i in ${podnetcheckerrors_arr[@]}; do
     podnetcheck_arr+=("$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | select(.status.failures[0].success == false) | .metadata.name, .status.failures[0].time, .status.failures[0].message)] | join(\"|\")")")
 done
 
@@ -514,15 +523,15 @@ fi
 podnetoutage_arr=("NAME|START|END|MESSAGE|ERROR")
 
 #Get indexes with failures.
-for i in {0..${check_count}}; do
+for i in $(seq 0 ${check_count}); do
   if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items[$i].status.outages[].message | contains(\"Connectivity\")"; then
     podnetoutageerrors_arr+=("$i")
   fi
 done
 
 #Get ouput from index with failures.
-for i in ${podnetoutageerrors_arr[@]}; do 
-    podnetoutage_arr+=("$(yq -r . podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | .metadata.name, .status.outages[0].start, .status.outages[0].end, .status.outages[0].message, .status.outages[0].endLogs[-1].message)] | join(\"|\")")")
+for i in ${podnetoutageerrors_arr[@]}; do
+    podnetoutage_arr+=("$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | .metadata.name, .status.outages[0].start, .status.outages[0].end, .status.outages[0].message, .status.outages[0].endLogs[-1].message)] | join(\"|\")")")
 done
 
 if [ "${#podnetoutage_arr[1]}" != 0 ]; then

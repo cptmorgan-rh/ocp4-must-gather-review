@@ -87,16 +87,6 @@ if [ ! $(command -v yq) ]; then
   exit 1
 fi
 
-if [ ! $(command -v ggrep) ]; then
-  echo "ggrep not found. Please install ggrep by running brew install grep"
-  exit 1
-fi
-
-if [ ! -f /opt/homebrew/opt/bc/bin/bc ]; then
-  echo "brew bc not found. Please install bc by running brew install bc"
-  exit 1
-fi
-
 }
 
 all(){
@@ -141,7 +131,6 @@ else
   exit
 fi
 
-
 unset events_arr
 
 }
@@ -158,12 +147,13 @@ fi
 etcd_output_arr=("NAMESPACE|POD|ERROR|COUNT")
 
 # etcd pod errors
-etcd_etcd_errors_arr=("waiting for ReadIndex response took too long" "etcdserver: request timed out" "slow fdatasync" "took too long" "local node might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "failed to send out heartbeat on time" "lost the tcp streaming" "sending buffer is full" "health errors")
+etcd_etcd_errors_arr=("waiting for ReadIndex response took too long, retrying" "etcdserver: request timed out" "slow fdatasync" "\"apply request took too long\"" "\"leader failed to send out heartbeat on time; took too long, leader is overloaded likely from slow disk\"" "local no
+de might have slow network" "elected leader" "lost leader" "wal: sync duration" "the clock difference against peer" "lease not found" "rafthttp: failed to read" "server is likely overloaded" "lost the tcp streaming" "sending buffer is full" "health errors")
 
 for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
   for val in "${etcd_etcd_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     etcd_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     etcd_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -175,21 +165,27 @@ fi
 
 unset etcd_output_arr
 
-for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*log; do
+for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
     max=0
     min=9999
     avg=0
     count=0
-    if ggrep 'took too long.*expec' "$i" > /dev/null 2>&1;
+    expected=$(grep -m1 'took too long.*expec' "$i" | cut -d' ' -f2- | jq -r '."expected-duration"' 2>/dev/null)
+    if grep 'took too long.*expec' "$i" > /dev/null 2>&1;
     then
-      expected=$(ggrep -m1 'took too long.*expec' "$i" | ggrep -o "{.*}" | jq -r '."expected-duration"' 2>/dev/null)
-      first=$(ggrep -m1 'took too long.*.expec' "$i" 2>/dev/null | ggrep -o "{.*}" | jq -r '.ts')
-      last=$(ggrep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | ggrep -o "{.*}" | jq -r '.ts')
 
-      for x in $(ggrep 'took too long.*expec' "$i" | ggrep -Ev 'leader|waiting for ReadIndex response took too long' | ggrep -o "{.*}" | jq -r '.took' 2>/dev/null | ggrep -Ev 'T|Z' 2>/dev/null | ggrep -Ev '[1-9]m[0-9].*s'); do
-        if [[ $x =~ [1-9]s ]];
+      first=$(grep -m1 'took too long.*expec' "$i" 2>/dev/null | awk '{ print $1}')
+      last=$(grep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
+
+      for x in $(grep 'took too long.*expec' "$i" | grep -Ev 'leader|waiting for ReadIndex response took too long' | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null); do
+        if [[ $x =~ [1-9]m[0-9] ]];
         then
-         compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | /opt/homebrew/opt/bc/bin/bc)
+        elif [[ $x =~ [1-9]s ]];
+        then
+          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /opt/homebrew/opt/bc/bin/bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
@@ -220,10 +216,15 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
     min=9999
     avg=0
     count=0
-    if ggrep -m1 "finished scheduled compaction" "$i" | ggrep '"took"'  > /dev/null 2>&1;
+    if grep -m1 "finished scheduled compaction" "$i" | grep '"took"'  > /dev/null 2>&1;
     then
-      for x in $(ggrep "finished scheduled compaction" "$i" | ggrep -o "{.*}" | sed 's/\\/\\\\/g' | jq -r '.took'); do
-        if [[ $x =~ [1-9]s ]];
+      for x in $(grep "finished scheduled compaction" "$i" | cut -d' ' -f2- | sed 's/\\/\\\\/g' | jq -r '.took'); do
+        if [[ $x =~ [1-9]m[0-9] ]];
+        then
+          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | /opt/homebrew/opt/bc/bin/bc)
+        elif [[ $x =~ [1-9]s ]];
         then
           compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | /opt/homebrew/opt/bc/bin/bc)
         else
@@ -266,8 +267,8 @@ kubeapi_errors_arr=("timeout or abort while handling")
 
 for i in namespaces/openshift-kube-apiserver/pods/kube-apiserver-*/kube-apiserver/kube-apiserver/logs/current.log; do
   for val in "${kubeapi_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     kubeapi_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     kubeapi_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -297,8 +298,8 @@ scheduler_errors_arr=("net/http: request canceled (Client.Timeout exceeded while
 
 for i in namespaces/openshift-kube-scheduler/pods/openshift-kube-scheduler-*/kube-scheduler/kube-scheduler/logs/current.log; do
   for val in "${scheduler_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     scheduler_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     scheduler_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -328,8 +329,8 @@ dns_errors_arr=("TLS handshake timeout" "i/o timeout" "connection reset by peer"
 
 for i in namespaces/openshift-dns/pods/dns-default-*/dns/dns/logs/current.log; do
   for val in "${dns_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     dns_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     dns_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -359,8 +360,8 @@ ingress_errors_arr=("unable to find service" "error reloading router: exit statu
 
 for i in namespaces/openshift-ingress/pods/router-default-*/router/router/logs/current.log; do
   for val in "${ingress_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     ingress_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     ingress_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -390,8 +391,8 @@ sdn_errors_arr=("connection refused" "an error on the server (\"\") has prevente
 
 for i in namespaces/openshift-sdn/pods/sdn-*/sdn/sdn/logs/current.log; do
   for val in "${sdn_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     sdn_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     sdn_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -421,8 +422,8 @@ auth_errors_arr=("the server is currently unable to handle the request" "Client.
 
 for i in namespaces/openshift-authentication/pods/oauth-openshift-*/oauth-openshift/oauth-openshift/logs/current.log; do
   for val in "${auth_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     auth_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     auth_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -452,8 +453,8 @@ kube_controller_errors_arr=("the server is currently unable to handle the reques
 
 for i in namespaces/openshift-kube-controller-manager/pods/kube-controller-manager-*/kube-controller-manager/kube-controller-manager/logs/current.log; do
   for val in "${kube_controller_errors_arr[@]}"; do
-    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
-     kube_controller_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
+    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
+     kube_controller_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
     fi
   done
 done
@@ -490,8 +491,6 @@ printf "Total Unsigned CSRs: ${csr_total}\n"
 
 podnetcheck(){
 
-##Added for future support of podnetworkconnectivitychecks
-
 #Check to make sure the podnetworkconnectivitychecks.yaml file exits
 if [ ! -d  pod_network_connectivity_check/ ]; then
   echo -e "PodNetworkConnectivityChecks not found.\n\n"
@@ -505,14 +504,14 @@ check_count=$(( $checks_count_len - 1 ))
 podnetcheck_arr=("NAME|DATE|ERROR")
 
 #Get indexes with failures.
-for i in {0..${check_count}}; do
-    if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items["$i"].status.failures[0].success | contains(false)"; then 
+for i in $(seq 0 ${check_count}); do
+    if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items["$i"].status.failures[0].success | contains(false)"; then
       podnetcheckerrors_arr+=("$i")
     fi
 done
 
 #Get ouput from index with failures.
-for i in ${podnetcheckerrors_arr[@]}; do 
+for i in ${podnetcheckerrors_arr[@]}; do
     podnetcheck_arr+=("$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | select(.status.failures[0].success == false) | .metadata.name, .status.failures[0].time, .status.failures[0].message)] | join(\"|\")")")
 done
 
@@ -524,15 +523,15 @@ fi
 podnetoutage_arr=("NAME|START|END|MESSAGE|ERROR")
 
 #Get indexes with failures.
-for i in {0..${check_count}}; do
+for i in $(seq 0 ${check_count}); do
   if yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r &>/dev/null ".items[$i].status.outages[].message | contains(\"Connectivity\")"; then
     podnetoutageerrors_arr+=("$i")
   fi
 done
 
 #Get ouput from index with failures.
-for i in ${podnetoutageerrors_arr[@]}; do 
-    podnetoutage_arr+=("$(yq -r . podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | .metadata.name, .status.outages[0].start, .status.outages[0].end, .status.outages[0].message, .status.outages[0].endLogs[-1].message)] | join(\"|\")")")
+for i in ${podnetoutageerrors_arr[@]}; do
+    podnetoutage_arr+=("$(yq -r . pod_network_connectivity_check/podnetworkconnectivitychecks.yaml | jq -r "[(.items["$i"] | .metadata.name, .status.outages[0].start, .status.outages[0].end, .status.outages[0].message, .status.outages[0].endLogs[-1].message)] | join(\"|\")")")
 done
 
 if [ "${#podnetoutage_arr[1]}" != 0 ]; then
