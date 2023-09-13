@@ -87,6 +87,16 @@ if [ ! $(command -v yq) ]; then
   exit 1
 fi
 
+if [ ! $(command -v ggrep) ]; then
+  echo "ggrep not found. Please install ggrep by running brew install grep"
+  exit 1
+fi
+
+if [ ! -f /opt/homebrew/opt/bc/bin/bc ]; then
+  echo "brew bc not found. Please install bc by running brew install bc"
+  exit 1
+fi
+
 }
 
 all(){
@@ -152,8 +162,8 @@ de might have slow network" "elected leader" "lost leader" "wal: sync duration" 
 
 for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
   for val in "${etcd_etcd_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     etcd_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     etcd_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
@@ -170,18 +180,18 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
     min=9999
     avg=0
     count=0
-    expected=$(grep -m1 'took too long.*expec' "$i" | cut -d' ' -f2- | jq -r '."expected-duration"' 2>/dev/null)
-    if grep 'took too long.*expec' "$i" > /dev/null 2>&1;
+    expected=$(ggrep -m1 'took too long.*expec' "$i" | cut -d' ' -f2- | jq -r '."expected-duration"' 2>/dev/null)
+    if ggrep 'took too long.*expec' "$i" > /dev/null 2>&1;
     then
 
-      first=$(grep -m1 'took too long.*expec' "$i" 2>/dev/null | awk '{ print $1}')
-      last=$(grep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
+      first=$(ggrep -m1 'took too long.*expec' "$i" 2>/dev/null | awk '{ print $1}')
+      last=$(ggrep 'took too long.*expec' "$i" 2>/dev/null | tail -n1 | awk '{ print $1}')
 
-      for x in $(grep 'took too long.*expec' "$i" | grep -Ev 'leader|waiting for ReadIndex response took too long' | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null); do
+      for x in $(ggrep 'took too long.*expec' "$i" | ggrep -Ev 'leader|waiting for ReadIndex response took too long' | cut -d' ' -f2- | jq -r '.took' 2>/dev/null | ggrep -Ev 'T|Z' 2>/dev/null); do
         if [[ $x =~ [1-9]m[0-9] ]];
         then
-          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
-          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_min=$(echo "scale=2;$(echo $x | ggrep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | ggrep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
           compact_time=$(echo "scale=2;$compact_min + $compact_sec" | /opt/homebrew/opt/bc/bin/bc)
         elif [[ $x =~ [1-9]s ]];
         then
@@ -216,13 +226,13 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
     min=9999
     avg=0
     count=0
-    if grep -m1 "finished scheduled compaction" "$i" | grep '"took"'  > /dev/null 2>&1;
+    if ggrep -m1 "finished scheduled compaction" "$i" | ggrep '"took"'  > /dev/null 2>&1;
     then
-      for x in $(grep "finished scheduled compaction" "$i" | cut -d' ' -f2- | sed 's/\\/\\\\/g' | jq -r '.took'); do
+      for x in $(ggrep "finished scheduled compaction" "$i" | cut -d' ' -f2- | sed 's/\\/\\\\/g' | jq -r '.took'); do
         if [[ $x =~ [1-9]m[0-9] ]];
         then
-          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
-          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_min=$(echo "scale=2;$(echo $x | ggrep -Eo '[1-9]m' | sed 's/m//')*60000" | /opt/homebrew/opt/bc/bin/bc)
+          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | ggrep -Eo '[1-9]?\.[0-9]+')*1000" | /opt/homebrew/opt/bc/bin/bc)
           compact_time=$(echo "scale=2;$compact_min + $compact_sec" | /opt/homebrew/opt/bc/bin/bc)
         elif [[ $x =~ [1-9]s ]];
         then
@@ -267,8 +277,8 @@ kubeapi_errors_arr=("timeout or abort while handling")
 
 for i in namespaces/openshift-kube-apiserver/pods/kube-apiserver-*/kube-apiserver/kube-apiserver/logs/current.log; do
   for val in "${kubeapi_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     kubeapi_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     kubeapi_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
@@ -298,8 +308,8 @@ scheduler_errors_arr=("net/http: request canceled (Client.Timeout exceeded while
 
 for i in namespaces/openshift-kube-scheduler/pods/openshift-kube-scheduler-*/kube-scheduler/kube-scheduler/logs/current.log; do
   for val in "${scheduler_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     scheduler_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     scheduler_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
@@ -329,8 +339,8 @@ dns_errors_arr=("TLS handshake timeout" "i/o timeout" "connection reset by peer"
 
 for i in namespaces/openshift-dns/pods/dns-default-*/dns/dns/logs/current.log; do
   for val in "${dns_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     dns_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     dns_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
@@ -360,8 +370,8 @@ ingress_errors_arr=("unable to find service" "error reloading router: exit statu
 
 for i in namespaces/openshift-ingress/pods/router-default-*/router/router/logs/current.log; do
   for val in "${ingress_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     ingress_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     ingress_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
@@ -391,8 +401,8 @@ sdn_errors_arr=("connection refused" "an error on the server (\"\") has prevente
 
 for i in namespaces/openshift-sdn/pods/sdn-*/sdn/sdn/logs/current.log; do
   for val in "${sdn_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     sdn_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     sdn_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
@@ -422,8 +432,8 @@ auth_errors_arr=("the server is currently unable to handle the request" "Client.
 
 for i in namespaces/openshift-authentication/pods/oauth-openshift-*/oauth-openshift/oauth-openshift/logs/current.log; do
   for val in "${auth_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     auth_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     auth_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
@@ -453,8 +463,8 @@ kube_controller_errors_arr=("the server is currently unable to handle the reques
 
 for i in namespaces/openshift-kube-controller-manager/pods/kube-controller-manager-*/kube-controller-manager/kube-controller-manager/logs/current.log; do
   for val in "${kube_controller_errors_arr[@]}"; do
-    if [[ "$(grep -wc "$val" "$i")" != "0" ]]; then
-     kube_controller_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(grep -wc "$val" "$i")")
+    if [[ "$(ggrep -wc "$val" "$i")" != "0" ]]; then
+     kube_controller_output_arr+=("$(echo "$i" | awk -F/ '{ print $2 }')|$(echo "$i" | awk -F/ '{ print $4 }')|$(echo "$val")|$(ggrep -wc "$val" "$i")")
     fi
   done
 done
