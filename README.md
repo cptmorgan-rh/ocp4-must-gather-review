@@ -123,76 +123,76 @@ openshift-etcd  etcd-ocp-85wpv-master-2  lease not found                        
 openshift-etcd  etcd-ocp-85wpv-master-2  sending buffer is full                                                                                    3229
 
 Stats about etcd 'took long' messages: etcd-ocp-85wpv-master-0
-	First Occurance: 2023-08-22T21:55:00.293372109Z
-	Last Occurance: 2023-08-23T07:21:15.759470164Z
-	Maximum: 24447.446878000ms
-	Minimum: 100.3548ms
-	Median: 502.38111ms
-	Average: 1597.2489397344339ms
+	First Occurance: 2023-09-06T15:01:14.434319112Z
+	Last Occurance: 2023-09-12T22:10:59.843223535Z
+	Maximum: 3522.91903ms
+	Minimum: 201.846969ms
+	Median: 980ms
+	Average: 1175ms
 	Expected: 200ms
 
 Stats about etcd 'took long' messages: etcd-ocp-85wpv-master-1
-	First Occurance: 2023-08-23T02:29:33.089622969Z
-	Last Occurance: 2023-08-26T16:36:06.369371064Z
-	Maximum: 39928.879989000ms
-	Minimum: 100.824712ms
-	Median: 1020.7342165ms
-	Average: 6920.606041005108ms
+	First Occurance: 2023-09-12T20:25:33.972726480Z
+	Last Occurance: 2023-09-12T22:10:59.837938805Z
+	Maximum: 1141.97292ms
+	Minimum: 203.934898ms
+	Median: 532.362165ms
+	Average: 583ms
 	Expected: 200ms
 
 Stats about etcd 'took long' messages: etcd-ocp-85wpv-master-2
-	First Occurance: 2023-08-22T19:45:37.728011585Z
-	Last Occurance: 2023-08-24T15:00:00.338017683Z
-	Maximum: 21744.143655000ms
-	Minimum: 105.300525ms
-	Median: 983.8026565ms
-	Average: 6366.830047261907ms
+	First Occurance: 2023-08-01T13:36:34.433175702Z
+	Last Occurance: 2023-09-13T14:22:00.580271701Z
+	Maximum: 11511.24381ms
+	Minimum: 200.016363ms
+	Median: 482.516943ms
+	Average: 853ms
 	Expected: 200ms
 
 Stats about etcd 'slow fdatasync' messages: etcd-ocp-85wpv-master-0
-	First Occurance: 2023-08-22T22:48:28.409721624Z
-	Last Occurance: 2023-08-23T03:21:49.293376168Z
-	Maximum: 5368.560878000ms
-	Minimum: 1024.725187000ms
-	Median: 1861.773876000ms
-	Average: 2282.4877315555555ms
+	First Occurance: 2023-08-01T13:36:25.005072189Z
+	Last Occurance: 2023-08-17T02:02:04.049603261Z
+	Maximum: 11679.21919ms
+	Minimum: 1002.78933ms
+	Median: 1519ms
+	Average: 4480ms
 	Expected: 1s
 
 Stats about etcd 'slow fdatasync' messages: etcd-ocp-85wpv-master-1
-	First Occurance: 2023-08-23T02:46:24.839624930Z
-	Last Occurance: 2023-08-23T02:46:24.839624930Z
-	Maximum: 4580.619091000ms
-	Minimum: 4580.619091000ms
-	Median: 4580.619091000ms
-	Average: 4580.619091ms
+	First Occurance: 2023-08-01T13:36:25.005072189Z
+	Last Occurance: 2023-08-17T02:02:04.049603261Z
+	Maximum: 11679.21919ms
+	Minimum: 1002.78933ms
+	Median: 1519ms
+	Average: 4480ms
 	Expected: 1s
 
 Stats about etcd 'slow fdatasync' messages: etcd-ocp-85wpv-master-2
-	First Occurance: 2023-08-22T19:47:18.380266659Z
-	Last Occurance: 2023-08-23T03:34:53.232922865Z
-	Maximum: 2970.156241000ms
-	Minimum: 1124.231775000ms
-	Median: 1844.3475265000002ms
-	Average: 1948.1355376249999ms
+	First Occurance: 2023-08-01T13:36:25.005072189Z
+	Last Occurance: 2023-08-17T02:02:04.049603261Z
+	Maximum: 11679.21919ms
+	Minimum: 1002.78933ms
+	Median: 1519ms
+	Average: 4480ms
 	Expected: 1s
 
 etcd DB Compaction times: etcd-ocp-85wpv-master-0
-	Maximum: 429921.463412000ms
-	Minimum: 105.896533ms
-	Median: 110.189392ms
-	Average: 790.6587394749773ms
+	Maximum: 3283.36771ms
+	Minimum: 1832.36697ms
+	Median: 1993ms
+	Average: 2024ms
 
-etcd DB Compaction times: etcd-ocp-85wpv-master-1
-	Maximum: 429921.463412000ms
-	Minimum: 105.032466ms
-	Median: 109.717624ms
-	Average: 491.03446315230514ms
+etcd DB Compaction times: etcd-ocp-85wpv-master-0
+	Maximum: 4875.56210ms
+	Minimum: 1832.36697ms
+	Median: 2013.73357ms
+	Average: 2054ms
 
-etcd DB Compaction times: etcd-ocp-85wpv-master-2
-	Maximum: 429921.463412000ms
-	Minimum: 105.032466ms
-	Median: 109.87619649999999ms
-	Average: 537.0147174835607ms
+etcd DB Compaction times: etcd-ocp-85wpv-master-0
+	Maximum: 5946.93666ms
+	Minimum: 1826.25978ms
+	Median: 2755ms
+	Average: 2590ms
 
 NAMESPACE                 POD                                ERROR                            COUNT
 openshift-kube-apiserver  kube-apiserver-ocp4-85wpv-master-0  timeout or abort while handling  1

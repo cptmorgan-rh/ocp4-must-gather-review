@@ -159,6 +159,7 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current.log; do
   done
 done
 
+
 if [ "${#etcd_output_arr[1]}" != 0 ]; then
   printf '%s\n' "${etcd_output_arr[@]}" | column -t -s '|'
   printf "\n"
@@ -177,12 +178,12 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
       for x in $(grep 'took too long.*expec' "$i" | grep -Ev 'leader|waiting for ReadIndex response took too long' | grep -o "\{.*\}"  | jq -r '.took' 2>/dev/null | grep -Ev 'T|Z' 2>/dev/null); do
         if [[ $x =~ [1-9]m[0-9] ]];
         then
-          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
-          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
-          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
+          compact_min=$(echo "scale=5;($(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000)/1" | bc)
+          compact_sec=$(echo "scale=5;($(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000)/1" | bc)
+          compact_time=$(echo "scale=5;$compact_min + $compact_sec" | bc)
         elif [[ $x =~ [1-9]s ]];
         then
-          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
+          compact_time=$(echo "scale=5;($(echo $x | sed 's/s//')*1000)/1" | bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
@@ -191,10 +192,10 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
       printf "Stats about etcd 'took long' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tFirst Occurance: ${first}\n"
       printf "\tLast Occurance: ${last}\n"
-      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
-      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
-      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
-      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{maximum:max}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2|round end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{average:(add/length|round)}' | jq -r '.average')ms\n"
       printf "\tExpected: ${expected}\n"
       printf "\n"
 
@@ -213,12 +214,12 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
       for x in $(grep 'slow fdatasync' "$i" | grep -o "\{.*\}"  | jq -r '.took' 2>/dev/null); do
         if [[ $x =~ [1-9]m[0-9] ]];
         then
-          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
-          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
-          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
+          compact_min=$(echo "scale=5;($(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000)/1" | bc)
+          compact_sec=$(echo "scale=5;($(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000)/1" | bc)
+          compact_time=$(echo "scale=5;$compact_min + $compact_sec" | bc)
         elif [[ $x =~ [1-9]s ]];
         then
-          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
+          compact_time=$(echo "scale=5;($(echo $x | sed 's/s//')*1000)/1" | bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
@@ -227,10 +228,10 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
       printf "Stats about etcd 'slow fdatasync' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tFirst Occurance: ${first}\n"
       printf "\tLast Occurance: ${last}\n"
-      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
-      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
-      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
-      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{maximum:max}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2|round end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{average:(add/length|round)}' | jq -r '.average')ms\n"
       printf "\tExpected: ${expected}\n"
       printf "\n"
 
@@ -244,22 +245,22 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
       for x in $(grep "finished scheduled compaction" "$i" | grep -o "\{.*\}" | jq -r '.took'); do
         if [[ $x =~ [1-9]m[0-9] ]];
         then
-          compact_min=$(echo "scale=2;$(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000" | bc)
-          compact_sec=$(echo "scale=2;$(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000" | bc)
-          compact_time=$(echo "scale=2;$compact_min + $compact_sec" | bc)
+          compact_min=$(echo "scale=5;($(echo $x | grep -Eo '[1-9]m' | sed 's/m//')*60000)/1" | bc)
+          compact_sec=$(echo "scale=5;($(echo $x | sed -E 's/[1-9]+m//' | grep -Eo '[1-9]?\.[0-9]+')*1000)/1" | bc)
+          compact_time=$(echo "scale=5;$compact_min + $compact_sec" | bc)
         elif [[ $x =~ [1-9]s ]];
         then
-          compact_time=$(echo "scale=2;$(echo $x | sed 's/s//')*1000" | bc)
+          compact_time=$(echo "scale=5;($(echo $x | sed 's/s//')*1000)/1" | bc)
         else
           compact_time=$(echo $x | sed 's/ms//')
         fi
         median_arr+=(${compact_time})
       done
       printf "etcd DB Compaction times: $(echo "$i" | awk -F/ '{ print $4 }')\n"
-      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
-      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
-      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
-      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{maximum:max}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2|round end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{average:(add/length|round)}' | jq -r '.average')ms\n"
       printf "\n"
 
       unset median_ar
@@ -280,7 +281,7 @@ fi
 kubeapi_output_arr=("NAMESPACE|POD|ERROR|COUNT")
 
 # kube-apiserver pod errors
-kubeapi_errors_arr=("timeout or abort while handling")
+kubeapi_errors_arr=("timeout or abort while handling" "Failed calling webhook" "invalid bearer token, token lookup failed" "etcdserver: mvcc: required revision has been compacted")
 
 for i in namespaces/openshift-kube-apiserver/pods/kube-apiserver-*/kube-apiserver/kube-apiserver/logs/current.log; do
   for val in "${kubeapi_errors_arr[@]}"; do

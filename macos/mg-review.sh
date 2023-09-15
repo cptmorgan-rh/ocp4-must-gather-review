@@ -195,10 +195,10 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
       printf "Stats about etcd 'took long' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tFirst Occurance: ${first}\n"
       printf "\tLast Occurance: ${last}\n"
-      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
-      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
-      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
-      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{maximum:max}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2|round end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{average:(add/length|round)}' | jq -r '.average')ms\n"
       printf "\tExpected: ${expected}\n"
       printf "\n"
 
@@ -231,10 +231,10 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
       printf "Stats about etcd 'slow fdatasync' messages: $(echo "$i" | awk -F/ '{ print $4 }')\n"
       printf "\tFirst Occurance: ${first}\n"
       printf "\tLast Occurance: ${last}\n"
-      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
-      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
-      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
-      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{maximum:max}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2|round end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{average:(add/length|round)}' | jq -r '.average')ms\n"
       printf "\tExpected: ${expected}\n"
       printf "\n"
 
@@ -260,10 +260,10 @@ for i in namespaces/openshift-etcd/pods/etcd*/etcd/etcd/logs/current*.log; do
         median_arr+=(${compact_time})
       done
       printf "etcd DB Compaction times: $(echo "$i" | awk -F/ '{ print $4 }')\n"
-      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.maximum')ms\n"
-      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.minimum')ms\n"
-      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.median')ms\n"
-      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{minimum:min,maximum:max,average:(add/length),median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2 end)}' | jq -r '.average')ms\n"
+      printf "\tMaximum: $(echo ${median_arr[@]} | jq -s '{maximum:max}' | jq -r '.maximum')ms\n"
+      printf "\tMinimum: $(echo ${median_arr[@]} | jq -s '{minimum:min}' | jq -r '.minimum')ms\n"
+      printf "\tMedian: $(echo ${median_arr[@]} | jq -s '{median:(sort|if length%2==1 then.[length/2|floor]else[.[length/2-1,length/2]]|add/2|round end)}' | jq -r '.median')ms\n"
+      printf "\tAverage: $(echo ${median_arr[@]} | jq -s '{average:(add/length|round)}' | jq -r '.average')ms\n"
       printf "\n"
 
       unset median_ar
@@ -284,7 +284,7 @@ fi
 kubeapi_output_arr=("NAMESPACE|POD|ERROR|COUNT")
 
 # kube-apiserver pod errors
-kubeapi_errors_arr=("timeout or abort while handling")
+kubeapi_errors_arr=("timeout or abort while handling" "Failed calling webhook" "invalid bearer token, token lookup failed" "etcdserver: mvcc: required revision has been compacted")
 
 for i in namespaces/openshift-kube-apiserver/pods/kube-apiserver-*/kube-apiserver/kube-apiserver/logs/current.log; do
   for val in "${kubeapi_errors_arr[@]}"; do
